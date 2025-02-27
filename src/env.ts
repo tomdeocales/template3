@@ -4,6 +4,10 @@ import { expand } from "dotenv-expand";
 import path from "node:path";
 import { z } from "zod";
 
+// Explicitly disable ESLint rules for process.env access in this file
+// since we need to access environment variables here
+/* eslint-disable node/no-process-env */
+
 expand(config({
   path: path.resolve(
     process.cwd(),
@@ -21,15 +25,18 @@ const EnvSchema = z.object({
   AUTH0_ISSUER_BASE_URL: z.string(),
 });
 
-export type env = z.infer<typeof EnvSchema>;
+export type Env = z.infer<typeof EnvSchema>;
 
-// eslint-disable-next-line ts/no-redeclare
-const { data: env, error } = EnvSchema.safeParse(process.env);
+const result = EnvSchema.safeParse(process.env);
 
-if (error) {
+if (!result.success) {
+  // Allow console errors for critical environment loading failures
+
   console.error("❌ Invalid env:");
-  console.error(JSON.stringify(error.flatten().fieldErrors, null, 2));
+  console.error(JSON.stringify(result.error.flatten().fieldErrors, null, 2));
+
   process.exit(1);
 }
 
-export default env!;
+const env = result.data;
+export default env;
