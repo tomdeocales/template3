@@ -1,0 +1,27 @@
+name: Lint and Prettier Check
+on:
+  push:
+    branches:
+      - "**"
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    container:
+      image: node:22
+    env:
+      DB_EXPRESS_PORT: ${{ secrets.DB_EXPRESS_PORT }}
+
+    steps:
+      - uses: actions/checkout@v3
+      - run: npm ci
+
+      - name: Run Linting
+        run: npm run lint
+
+      - name: Run Typecheck
+        run: npm run typecheck
+
+      - name: Run Build
+        run: npm run build
+        
