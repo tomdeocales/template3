@@ -1,46 +1,47 @@
+// src/controller/auth.ts
 import type { Request, Response } from "express";
 
-// Remove this line if you're using axios instead of AuthenticationClient
-// import { AuthenticationClient } from "auth0";
-import axios from "axios";
+import { ManagementClient } from "auth0";
 
 import env from "../env";
 
-// Rest of your code...
+export async function signIn(req: Request, res: Response): Promise<void> {
+  const { username, password } = req.body;
 
-export async function validateToken(req: Request, res: Response): Promise<void> {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    res.status(401).json({ message: "Missing or invalid authorization token" });
+  if (!username || !password) {
+    res.status(400).json({ message: "Username and password are required." });
     return;
   }
 
-  const token = authHeader.split(" ")[1];
-
   try {
-    // Use Auth0's userinfo endpoint directly
-    const response = await axios.get(`https://${env.AUTH0_DOMAIN}/userinfo`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+    const management = new ManagementClient({
+      domain: env.AUTH0_DOMAIN,
+      clientId: env.AUTH0_CLIENT_ID,
+      clientSecret: env.AUTH0_CLIENT_SECRET,
     });
 
-    // If the request succeeds, the token is valid
-    const userInfo = response.data;
-
-    res.status(200).json({
-      message: "Token is valid",
-      user: userInfo,
+    // Get the response from the Auth0 API
+    const usersResponse = await management.users.getAll({
+      q: `email:"${username}"`,
+      search_engine: "v3",
     });
-  }
-  catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
 
-    if (env.NODE_ENV !== "production") {
-      console.error("[Token Validation Error]", errorMessage);
+    // The response might be an object with data property or directly an array
+    // Let's handle both cases
+    const usersList = Array.isArray(usersResponse) ? usersResponse : usersResponse.data || [];
+
+    if (usersList.length === 0) {
+      res.status(401).json({ message: "Invalid credentials" });
+      return; // Add return statement here
     }
 
-    res.status(401).json({ message: "Invalid token" });
+    const user = usersList[0];
+
+    // The Password grant is deprecated, should use resource owner password grant in Auth0
+
+    res.status(200).json({ message: "Sign in success!", user });
+  }
+  catch (error) {
+    res.status(500).json({ message: "Sign-in failed.", error: String(error) });
   }
 }
