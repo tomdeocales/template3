@@ -1,12 +1,11 @@
-// src/controller/auth.ts
 import type { Request, Response } from "express";
 
-import { AuthenticationClient } from "auth0";
+import { AuthenticationClient, ManagementClient } from "auth0"; // Import ManagementClient
 
 import env from "../env";
 
 // Define a type for the Auth0 response
-interface Auth0TokenResponse {
+export interface Auth0TokenResponse {
   access_token?: string;
   id_token?: string;
   expires_in?: number;
@@ -71,13 +70,15 @@ export async function validateToken(req: Request, res: Response): Promise<void> 
   const token = authHeader.split(" ")[1];
 
   try {
-    const auth0 = new AuthenticationClient({
+    const auth0 = new ManagementClient({
       domain: env.AUTH0_DOMAIN,
-      clientId: env.AUTH0_CLIENT_ID,
+      clientId: env.AUTH0_CLIENT_ID, // Note: Client credentials for ManagementClient
+      clientSecret: env.AUTH0_CLIENT_SECRET, // Required for client credentials flow
+      audience: `https://${env.AUTH0_DOMAIN}/api/v2/`, // Audience for the Management API
     });
 
     // Validate the token with Auth0
-    const userInfo = await auth0.getProfile(token);
+    const userInfo = await auth0.users.get({ id: token });
 
     res.status(200).json({
       message: "Token is valid",
@@ -86,6 +87,10 @@ export async function validateToken(req: Request, res: Response): Promise<void> 
   }
   catch (error) {
     console.error("[Token Validation Error]", error);
+    if (error instanceof Error) {
+      console.error("[Token Validation Error - Stack]", error.stack);
+    }
+
     res.status(401).json({ message: "Invalid token" });
   }
 }
